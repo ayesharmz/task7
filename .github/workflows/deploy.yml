@@ -15,39 +15,41 @@ jobs:
       TF_DIR: task7.terraform
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-    - name: Log in to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build and push Docker image to ECR
-      working-directory: ./my-strapi-app
-      run: |
-        IMAGE_TAG=latest
-        REPO_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}
-        docker build -t $REPO_URI:$IMAGE_TAG .
-        docker push $REPO_URI:$IMAGE_TAG
+      - name: Build and push Docker image to ECR
+        working-directory: ./my-strapi-app
+        run: |
+          IMAGE_TAG=latest
+          REPO_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}
+          docker build -t $REPO_URI:$IMAGE_TAG .
+          docker push $REPO_URI:$IMAGE_TAG
 
-    - name: Replace image in Terraform (optional if image is static)
-      run: |
-        sed -i "s|image = .*|image = \"$REPO_URI:latest\"|" $TF_DIR/task-definition.tf
+      - name: Replace image in Terraform task definition
+        run: |
+          REPO_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}
+          sed -i "s|image = .*|image = \"$REPO_URI:latest\"|" $TF_DIR/task-definition.tf
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
 
-    - name: Terraform Init
-      working-directory: ${{ env.TF_DIR }}
-      run: terraform init
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
 
-    - name: Terraform Apply
-      working-directory: ${{ env.TF_DIR }}
-      run: terraform apply -auto-approve
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -auto-approve
+
