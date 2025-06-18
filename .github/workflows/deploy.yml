@@ -1,39 +1,53 @@
-name: Deploy Strapi to AWS ECS
+name: CI/CD Strapi on ECS
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPO_NAME: strapi-app
+      TF_DIR: task7.terraform
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Log in to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/strapi-app:latest .
-          docker push ${{ secrets.DOCKER_USERNAME }}/strapi-app:latest
+    - name: Build and push Docker image to ECR
+      working-directory: ./my-strapi-app
+      run: |
+        IMAGE_TAG=latest
+        REPO_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_NAME }}
+        docker build -t $REPO_URI:$IMAGE_TAG .
+        docker push $REPO_URI:$IMAGE_TAG
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+    - name: Replace image in Terraform (optional if image is static)
+      run: |
+        sed -i "s|image = .*|image = \"$REPO_URI:latest\"|" $TF_DIR/task-definition.tf
 
-      - name: Terraform Init & Apply
-        run: |
-          cd infrastructure
-          terraform init
-          terraform apply -auto-approve
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Terraform Init
+      working-directory: ${{ env.TF_DIR }}
+      run: terraform init
+
+    - name: Terraform Apply
+      working-directory: ${{ env.TF_DIR }}
+      run: terraform apply -auto-approve
