@@ -1,6 +1,6 @@
 # IAM Role for ECS Task Execution
 resource "aws_iam_role" "ecs_task_exec" {
-  name = "ecsTaskExecutionRole"
+  name = "ecsTaskExecutionRole-ayesha"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
