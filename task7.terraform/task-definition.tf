@@ -9,7 +9,7 @@ resource "aws_ecs_task_definition" "strapi" {
   container_definitions = jsonencode([
     {
       name  = "strapi"
-      image = "your-dockerhub-username/strapi-app:latest"
+      image = "shunnualisha8980/strapi-app:latest"
       portMappings = [
         {
           containerPort = 1337,
